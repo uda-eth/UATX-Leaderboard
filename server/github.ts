@@ -84,37 +84,79 @@ export async function fetchUserCommitEvents(githubUsername: string): Promise<num
   }
 }
 
-export async function fetchUserTotalCommits(githubUsername: string): Promise<number> {
+export async function fetchHistoricalCommits2026(githubUsername: string): Promise<number> {
   try {
     const octokit = await getUncachableGitHubClient();
     let totalCommits = 0;
-    let page = 1;
-    let hasMore = true;
 
-    while (hasMore && page <= 10) {
-      const { data: events } = await octokit.activity.listPublicEventsForUser({
+    let repoPage = 1;
+    let hasMoreRepos = true;
+    const repos: { owner: string; repo: string; defaultBranch: string }[] = [];
+
+    while (hasMoreRepos) {
+      const { data: userRepos } = await octokit.repos.listForUser({
         username: githubUsername,
         per_page: 100,
-        page,
+        page: repoPage,
+        sort: "pushed",
+        type: "owner",
       });
 
-      if (events.length === 0) {
-        hasMore = false;
+      if (userRepos.length === 0) {
+        hasMoreRepos = false;
         break;
       }
 
-      for (const event of events) {
-        if (event.type === 'PushEvent') {
-          const payload = event.payload as any;
-          totalCommits += payload.commits?.length || 0;
+      for (const repo of userRepos) {
+        if (repo.pushed_at && new Date(repo.pushed_at) >= new Date("2026-01-01")) {
+          repos.push({
+            owner: repo.owner.login,
+            repo: repo.name,
+            defaultBranch: repo.default_branch || "main",
+          });
         }
       }
-      page++;
+
+      if (userRepos.length < 100) {
+        hasMoreRepos = false;
+      }
+      repoPage++;
+      if (repoPage > 5) break;
     }
 
+    for (const { owner, repo, defaultBranch } of repos) {
+      try {
+        let commitPage = 1;
+        let hasMoreCommits = true;
+
+        while (hasMoreCommits) {
+          const { data: commits } = await octokit.repos.listCommits({
+            owner,
+            repo,
+            sha: defaultBranch,
+            author: githubUsername,
+            since: "2026-01-01T00:00:00Z",
+            per_page: 100,
+            page: commitPage,
+          });
+
+          totalCommits += commits.length;
+
+          if (commits.length < 100) {
+            hasMoreCommits = false;
+          }
+          commitPage++;
+          if (commitPage > 10) break;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    console.log(`Fetched ${totalCommits} historical commits for ${githubUsername} in 2026 across ${repos.length} repos`);
     return totalCommits;
   } catch (error) {
-    console.error(`Error fetching total commits for ${githubUsername}:`, error);
+    console.error(`Error fetching historical commits for ${githubUsername}:`, error);
     return 0;
   }
 }

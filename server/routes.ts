@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
-import { fetchUserCommitEvents, fetchUserTotalCommits, calculateLevel, calculateXpFromCommits, getRank } from "./github";
+import { fetchUserCommitEvents, fetchHistoricalCommits2026, calculateLevel, calculateXpFromCommits, getRank } from "./github";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -125,6 +125,62 @@ export async function registerRoutes(
       });
 
       res.json(member);
+
+      // Deep historical scan runs in background after response is sent
+      (async () => {
+        try {
+          console.log(`Starting deep historical scan for ${githubUsername}...`);
+          const historicalCommits = await fetchHistoricalCommits2026(githubUsername);
+          const weeklyCommits = await fetchUserCommitEvents(githubUsername);
+
+          if (historicalCommits > 0) {
+            const xp = calculateXpFromCommits(historicalCommits);
+            const level = calculateLevel(xp);
+            const rank = getRank(level);
+
+            await storage.updateMember(member.id, {
+              totalCommits: historicalCommits,
+              weeklyCommits,
+              xp,
+              level,
+              rank,
+              lastSyncedAt: new Date(),
+            });
+
+            if (historicalCommits >= 10) {
+              await storage.addAchievement({
+                memberId: member.id,
+                type: "commits_10",
+                title: "Getting Started",
+                description: "Reached 10 total commits",
+                icon: "git-commit",
+              });
+            }
+            if (historicalCommits >= 50) {
+              await storage.addAchievement({
+                memberId: member.id,
+                type: "commits_50",
+                title: "Consistent Coder",
+                description: "Reached 50 total commits",
+                icon: "flame",
+              });
+            }
+            if (historicalCommits >= 100) {
+              await storage.addAchievement({
+                memberId: member.id,
+                type: "commits_100",
+                title: "Centurion",
+                description: "Reached 100 total commits",
+                icon: "trophy",
+              });
+            }
+
+            console.log(`Historical scan complete for ${githubUsername}: ${historicalCommits} commits in 2026`);
+          }
+        } catch (error) {
+          console.error(`Background historical scan failed for ${githubUsername}:`, error);
+        }
+      })();
     } catch (error) {
       console.error("Error creating member:", error);
       res.status(500).json({ message: "Failed to create member" });
