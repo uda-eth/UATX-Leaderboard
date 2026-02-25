@@ -1,12 +1,203 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { GitCommitHorizontal, Trophy, Flame, Users, ArrowRight, Code2, Zap, Target } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { GitCommitHorizontal, Trophy, Flame, Users, ArrowRight, Code2, Zap, Target, Eye, EyeOff } from "lucide-react";
 import { SiGithub } from "react-icons/si";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+
+function AuthDialog({ open, onOpenChange, defaultTab }: { open: boolean; onOpenChange: (v: boolean) => void; defaultTab: "login" | "signup" }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [showPassword, setShowPassword] = useState(false);
+
+  const [loginForm, setLoginForm] = useState({ email: "", password: "" });
+  const [signupForm, setSignupForm] = useState({ firstName: "", lastName: "", email: "", password: "" });
+
+  function parseErrorMessage(err: any, fallback: string): string {
+    const raw = err?.message || fallback;
+    const match = raw.match(/^\d+: (.+)$/);
+    if (match) {
+      try { return JSON.parse(match[1]).message || match[1]; } catch { return match[1]; }
+    }
+    return raw;
+  }
+
+  const loginMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/auth/login", loginForm),
+    onSuccess: async (data) => {
+      queryClient.setQueryData(["/api/auth/user"], await data.json());
+      onOpenChange(false);
+    },
+    onError: (err: any) => {
+      toast({ title: "Login failed", description: parseErrorMessage(err, "Login failed"), variant: "destructive" });
+    },
+  });
+
+  const signupMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/auth/signup", signupForm),
+    onSuccess: async (data) => {
+      queryClient.setQueryData(["/api/auth/user"], await data.json());
+      onOpenChange(false);
+    },
+    onError: (err: any) => {
+      toast({ title: "Signup failed", description: parseErrorMessage(err, "Signup failed"), variant: "destructive" });
+    },
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center">
+              <Code2 className="w-4 h-4 text-primary-foreground" />
+            </div>
+            UATX Code Club
+          </DialogTitle>
+        </DialogHeader>
+        <Tabs defaultValue={defaultTab} className="mt-2">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="login" data-testid="tab-login">Log In</TabsTrigger>
+            <TabsTrigger value="signup" data-testid="tab-signup">Sign Up</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="login" className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label htmlFor="login-email">Email</Label>
+              <Input
+                id="login-email"
+                type="email"
+                placeholder="you@example.com"
+                value={loginForm.email}
+                onChange={(e) => setLoginForm(f => ({ ...f, email: e.target.value }))}
+                data-testid="input-login-email"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="login-password">Password</Label>
+              <div className="relative">
+                <Input
+                  id="login-password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={loginForm.password}
+                  onChange={(e) => setLoginForm(f => ({ ...f, password: e.target.value }))}
+                  onKeyDown={(e) => e.key === "Enter" && loginMutation.mutate()}
+                  data-testid="input-login-password"
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowPassword(v => !v)}
+                  data-testid="button-toggle-password"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+            <Button
+              className="w-full"
+              onClick={() => loginMutation.mutate()}
+              disabled={loginMutation.isPending || !loginForm.email || !loginForm.password}
+              data-testid="button-login-submit"
+            >
+              {loginMutation.isPending ? "Logging in..." : "Log In"}
+            </Button>
+          </TabsContent>
+
+          <TabsContent value="signup" className="space-y-4 mt-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="signup-firstname">First Name</Label>
+                <Input
+                  id="signup-firstname"
+                  placeholder="Alex"
+                  value={signupForm.firstName}
+                  onChange={(e) => setSignupForm(f => ({ ...f, firstName: e.target.value }))}
+                  data-testid="input-signup-firstname"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="signup-lastname">Last Name</Label>
+                <Input
+                  id="signup-lastname"
+                  placeholder="Smith"
+                  value={signupForm.lastName}
+                  onChange={(e) => setSignupForm(f => ({ ...f, lastName: e.target.value }))}
+                  data-testid="input-signup-lastname"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="signup-email">Email</Label>
+              <Input
+                id="signup-email"
+                type="email"
+                placeholder="you@example.com"
+                value={signupForm.email}
+                onChange={(e) => setSignupForm(f => ({ ...f, email: e.target.value }))}
+                data-testid="input-signup-email"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="signup-password">Password</Label>
+              <div className="relative">
+                <Input
+                  id="signup-password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="At least 6 characters"
+                  value={signupForm.password}
+                  onChange={(e) => setSignupForm(f => ({ ...f, password: e.target.value }))}
+                  onKeyDown={(e) => e.key === "Enter" && signupMutation.mutate()}
+                  data-testid="input-signup-password"
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowPassword(v => !v)}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+            <Button
+              className="w-full"
+              onClick={() => signupMutation.mutate()}
+              disabled={signupMutation.isPending || !signupForm.email || !signupForm.password}
+              data-testid="button-signup-submit"
+            >
+              {signupMutation.isPending ? "Creating account..." : "Create Account"}
+            </Button>
+            <p className="text-xs text-center text-muted-foreground">
+              After signing up, you'll link your GitHub username to start tracking commits.
+            </p>
+          </TabsContent>
+        </Tabs>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function Landing() {
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authTab, setAuthTab] = useState<"login" | "signup">("signup");
+
+  const openAuth = (tab: "login" | "signup") => {
+    setAuthTab(tab);
+    setAuthOpen(true);
+  };
+
   return (
     <div className="min-h-screen bg-background">
+      <AuthDialog open={authOpen} onOpenChange={setAuthOpen} defaultTab={authTab} />
+
       <nav className="fixed top-0 left-0 right-0 z-50 border-b bg-background/80 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
@@ -15,12 +206,14 @@ export default function Landing() {
             </div>
             <span className="font-semibold text-lg tracking-tight" data-testid="text-logo">UATX Code Club</span>
           </div>
-          <a href="/api/login">
-            <Button data-testid="button-login-nav">
-              <SiGithub className="w-4 h-4 mr-2" />
-              Sign In
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" onClick={() => openAuth("login")} data-testid="button-login-nav">
+              Log In
             </Button>
-          </a>
+            <Button onClick={() => openAuth("signup")} data-testid="button-signup-nav">
+              Sign Up
+            </Button>
+          </div>
         </div>
       </nav>
 
@@ -43,12 +236,13 @@ export default function Landing() {
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
-                <a href="/api/login">
-                  <Button size="lg" data-testid="button-get-started">
-                    Get Started
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </a>
+                <Button size="lg" onClick={() => openAuth("signup")} data-testid="button-get-started">
+                  Get Started
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+                <Button size="lg" variant="outline" onClick={() => openAuth("login")} data-testid="button-login-hero">
+                  Log In
+                </Button>
               </div>
               <div className="flex flex-wrap gap-6 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1.5">
@@ -78,27 +272,24 @@ export default function Landing() {
                   { rank: 3, name: "Carol Kim", commits: 31, level: 7, color: "text-amber-600" },
                   { rank: 4, name: "Dave Johnson", commits: 24, level: 5, color: "" },
                   { rank: 5, name: "Eve Williams", commits: 19, level: 4, color: "" },
-                ].map((user) => (
-                  <div
-                    key={user.rank}
-                    className="flex items-center gap-3 p-3 rounded-md bg-background/50"
-                  >
-                    <span className={`font-bold text-lg w-6 text-center ${user.color}`}>
-                      {user.rank === 1 ? (
+                ].map((u) => (
+                  <div key={u.rank} className="flex items-center gap-3 p-3 rounded-md bg-background/50">
+                    <span className={`font-bold text-lg w-6 text-center ${u.color}`}>
+                      {u.rank === 1 ? (
                         <Trophy className="w-5 h-5 text-yellow-500 mx-auto" />
                       ) : (
-                        `#${user.rank}`
+                        `#${u.rank}`
                       )}
                     </span>
                     <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold">
-                      {user.name.split(' ').map(n => n[0]).join('')}
+                      {u.name.split(' ').map(n => n[0]).join('')}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{user.name}</p>
-                      <p className="text-xs text-muted-foreground">Level {user.level}</p>
+                      <p className="font-medium text-sm truncate">{u.name}</p>
+                      <p className="text-xs text-muted-foreground">Level {u.level}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold text-sm">{user.commits}</p>
+                      <p className="font-semibold text-sm">{u.commits}</p>
                       <p className="text-xs text-muted-foreground">commits</p>
                     </div>
                   </div>
@@ -123,7 +314,7 @@ export default function Landing() {
                 </div>
                 <h3 className="font-semibold">Join the Club</h3>
                 <p className="text-sm text-muted-foreground">
-                  Sign in and link your GitHub username. Your public commits are automatically tracked every time you sync.
+                  Create a free account and link your GitHub username. Your public commits are automatically tracked every time you sync.
                 </p>
               </CardContent>
             </Card>

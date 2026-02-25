@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import { authStorage } from "./replit_integrations/auth/storage";
 import { fetchUserCommitEvents, fetchHistoricalCommits2026, calculateLevel, calculateXpFromCommits, getRank, getUncachableGitHubClient } from "./github";
 
 export async function registerRoutes(
@@ -74,9 +75,9 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/me/member", isAuthenticated, async (req: any, res) => {
+  app.get("/api/me/member", isAuthenticated, async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.session.userId!;
       const member = await storage.getMemberByUserId(userId);
       res.json(member || null);
     } catch (error) {
@@ -85,9 +86,9 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/members", isAuthenticated, async (req: any, res) => {
+  app.post("/api/members", isAuthenticated, async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.session.userId!;
       const { githubUsername } = req.body;
 
       if (!githubUsername) {
@@ -104,16 +105,16 @@ export async function registerRoutes(
         return res.status(400).json({ message: "This GitHub username is already registered" });
       }
 
-      const claims = req.user.claims;
-      const displayName = claims.first_name
-        ? `${claims.first_name}${claims.last_name ? ' ' + claims.last_name : ''}`
+      const user = await authStorage.getUser(userId);
+      const displayName = user?.firstName
+        ? `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`
         : githubUsername;
 
       const member = await storage.createMember({
         userId,
         githubUsername,
         displayName,
-        avatarUrl: claims.profile_image_url || `https://github.com/${githubUsername}.png`,
+        avatarUrl: `https://github.com/${githubUsername}.png`,
       });
 
       await storage.addAchievement({
@@ -126,7 +127,6 @@ export async function registerRoutes(
 
       res.json(member);
 
-      // Deep historical scan runs in background after response is sent
       (async () => {
         try {
           console.log(`Starting deep historical scan for ${githubUsername}...`);
@@ -187,9 +187,9 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/sync-commits", isAuthenticated, async (req: any, res) => {
+  app.post("/api/sync-commits", isAuthenticated, async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.session.userId!;
       const member = await storage.getMemberByUserId(userId);
 
       if (!member) {

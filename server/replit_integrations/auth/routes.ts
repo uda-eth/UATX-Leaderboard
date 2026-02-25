@@ -1,18 +1,98 @@
 import type { Express } from "express";
 import { authStorage } from "./storage";
 import { isAuthenticated } from "./replitAuth";
+import bcrypt from "bcryptjs";
 
-// Register auth-specific routes
 export function registerAuthRoutes(app: Express): void {
-  // Get current authenticated user
-  app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
+  app.get("/api/auth/user", isAuthenticated, async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await authStorage.getUser(userId);
-      res.json(user);
+      const user = await authStorage.getUser(req.session.userId!);
+      if (!user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      const { passwordHash: _, ...safeUser } = user;
+      res.json(safeUser);
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
     }
+  });
+
+  app.post("/api/auth/signup", async (req, res) => {
+    try {
+      const { email, password, firstName, lastName } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({ message: "Email and password are required" });
+      }
+      if (password.length < 6) {
+        return res.status(400).json({ message: "Password must be at least 6 characters" });
+      }
+
+      const hash = await bcrypt.hash(password, 12);
+      const normalizedEmail = email.toLowerCase().trim();
+
+      const existing = await authStorage.getUserByEmail(normalizedEmail);
+      if (existing) {
+        if (existing.passwordHash) {
+          return res.status(400).json({ message: "An account with this email already exists. Please log in." });
+        }
+        const updated = await authStorage.setPasswordHash(existing.id, hash);
+        req.session.userId = updated.id;
+        const { passwordHash: _, ...safeUser } = updated;
+        return res.json(safeUser);
+      }
+
+      const user = await authStorage.createUser({
+        email: normalizedEmail,
+        firstName: firstName?.trim() || null,
+        lastName: lastName?.trim() || null,
+        passwordHash: hash,
+      });
+
+      req.session.userId = user.id;
+      const { passwordHash: _, ...safeUser } = user;
+      res.status(201).json(safeUser);
+    } catch (error) {
+      console.error("Signup error:", error);
+      res.status(500).json({ message: "Failed to create account" });
+    }
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { email, password } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({ message: "Email and password are required" });
+      }
+
+      const user = await authStorage.getUserByEmail(email.toLowerCase().trim());
+      if (!user || !user.passwordHash) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      const valid = await bcrypt.compare(password, user.passwordHash);
+      if (!valid) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      req.session.userId = user.id;
+      const { passwordHash: _, ...safeUser } = user;
+      res.json(safeUser);
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ message: "Failed to log in" });
+    }
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ message: "Failed to log out" });
+      }
+      res.clearCookie("connect.sid");
+      res.json({ message: "Logged out" });
+    });
   });
 }
