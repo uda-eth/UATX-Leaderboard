@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
-import { fetchUserCommitEvents, fetchHistoricalCommits2026, calculateLevel, calculateXpFromCommits, getRank } from "./github";
+import { fetchUserCommitEvents, fetchHistoricalCommits2026, calculateLevel, calculateXpFromCommits, getRank, getUncachableGitHubClient } from "./github";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -196,8 +196,11 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Member not found. Please register first." });
       }
 
-      const weeklyCommits = await fetchUserCommitEvents(member.githubUsername);
-      const totalCommits = member.totalCommits + Math.max(0, weeklyCommits - member.weeklyCommits);
+      const [weeklyCommits, totalCommits2026] = await Promise.all([
+        fetchUserCommitEvents(member.githubUsername),
+        fetchHistoricalCommits2026(member.githubUsername),
+      ]);
+      const totalCommits = Math.max(member.totalCommits, totalCommits2026);
       const xp = calculateXpFromCommits(totalCommits);
       const level = calculateLevel(xp);
       const rank = getRank(level);
