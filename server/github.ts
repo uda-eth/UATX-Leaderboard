@@ -41,75 +41,41 @@ export async function getUncachableGitHubClient() {
   return new Octokit({ auth: accessToken });
 }
 
-async function getAllUserRepos(octokit: Octokit, githubUsername: string) {
-  const repos: { owner: string; repo: string; defaultBranch: string }[] = [];
+async function searchCommitCount(
+  octokit: Octokit,
+  githubUsername: string,
+  dateRange: string,
+): Promise<number> {
+  let totalCount = 0;
   let page = 1;
+  const maxPages = 10;
 
-  while (page <= 10) {
+  while (page <= maxPages) {
     try {
-      const { data: userRepos } = await octokit.repos.listForUser({
-        username: githubUsername,
+      const { data } = await octokit.rest.search.commits({
+        q: `author:${githubUsername} ${dateRange}`,
         per_page: 100,
         page,
-        sort: "pushed",
+        sort: "author-date",
+        order: "desc",
       });
 
-      if (userRepos.length === 0) break;
-
-      for (const repo of userRepos) {
-        repos.push({
-          owner: repo.owner.login,
-          repo: repo.name,
-          defaultBranch: repo.default_branch || "main",
-        });
+      if (page === 1) {
+        totalCount = data.total_count;
+        console.log(`  Search API found ${totalCount} commits for author:${githubUsername} ${dateRange}`);
+        break;
       }
-
-      if (userRepos.length < 100) break;
-      page++;
-    } catch (err) {
-      console.error(`Error listing repos page ${page} for ${githubUsername}:`, err);
+    } catch (error: any) {
+      if (error.status === 422) {
+        console.log(`  Search API: query too broad, paginating manually...`);
+        break;
+      }
+      console.error(`  Search API error page ${page}:`, error.message || error);
       break;
     }
   }
 
-  return repos;
-}
-
-async function countCommitsInRepo(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-  branch: string,
-  author: string,
-  since: string,
-  until?: string,
-): Promise<number> {
-  let count = 0;
-  let page = 1;
-
-  while (page <= 20) {
-    try {
-      const params: any = {
-        owner,
-        repo,
-        sha: branch,
-        author,
-        since,
-        per_page: 100,
-        page,
-      };
-      if (until) params.until = until;
-
-      const { data: commits } = await octokit.repos.listCommits(params);
-      count += commits.length;
-      if (commits.length < 100) break;
-      page++;
-    } catch {
-      break;
-    }
-  }
-
-  return count;
+  return totalCount;
 }
 
 export async function fetchUserCommitEvents(githubUsername: string): Promise<number> {
@@ -117,20 +83,15 @@ export async function fetchUserCommitEvents(githubUsername: string): Promise<num
     const octokit = await getUncachableGitHubClient();
     const now = new Date();
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const sinceStr = weekAgo.toISOString();
 
-    const repos = await getAllUserRepos(octokit, githubUsername);
-    let totalCommits = 0;
+    const fromDate = weekAgo.toISOString().split('T')[0];
+    const toDate = now.toISOString().split('T')[0];
+    const dateRange = `author-date:${fromDate}..${toDate}`;
 
-    console.log(`Scanning ${repos.length} repos for weekly commits by ${githubUsername}...`);
-
-    for (const { owner, repo, defaultBranch } of repos) {
-      const count = await countCommitsInRepo(octokit, owner, repo, defaultBranch, githubUsername, sinceStr);
-      totalCommits += count;
-    }
-
-    console.log(`Weekly commits for ${githubUsername}: ${totalCommits}`);
-    return totalCommits;
+    console.log(`Searching weekly commits for ${githubUsername} (${fromDate} to ${toDate})...`);
+    const count = await searchCommitCount(octokit, githubUsername, dateRange);
+    console.log(`Weekly commits for ${githubUsername}: ${count}`);
+    return count;
   } catch (error) {
     console.error(`Error fetching weekly commits for ${githubUsername}:`, error);
     return 0;
@@ -140,24 +101,14 @@ export async function fetchUserCommitEvents(githubUsername: string): Promise<num
 export async function fetchHistoricalCommits2026(githubUsername: string): Promise<number> {
   try {
     const octokit = await getUncachableGitHubClient();
-    const repos = await getAllUserRepos(octokit, githubUsername);
-    let totalCommits = 0;
+    const now = new Date();
+    const toDate = now.toISOString().split('T')[0];
+    const dateRange = `author-date:2026-01-01..${toDate}`;
 
-    console.log(`Deep scanning ${repos.length} repos for 2026 commits by ${githubUsername}...`);
-
-    for (const { owner, repo, defaultBranch } of repos) {
-      const count = await countCommitsInRepo(
-        octokit, owner, repo, defaultBranch, githubUsername,
-        "2026-01-01T00:00:00Z"
-      );
-      if (count > 0) {
-        console.log(`  ${owner}/${repo}: ${count} commits`);
-      }
-      totalCommits += count;
-    }
-
-    console.log(`Total 2026 commits for ${githubUsername}: ${totalCommits} across ${repos.length} repos`);
-    return totalCommits;
+    console.log(`Deep scanning 2026 commits for ${githubUsername}...`);
+    const count = await searchCommitCount(octokit, githubUsername, dateRange);
+    console.log(`Total 2026 commits for ${githubUsername}: ${count}`);
+    return count;
   } catch (error) {
     console.error(`Error fetching historical commits for ${githubUsername}:`, error);
     return 0;
