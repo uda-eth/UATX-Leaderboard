@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, varchar, integer, timestamp, text, boolean, date } from "drizzle-orm/pg-core";
+import { pgTable, varchar, integer, bigint, timestamp, text, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { users } from "./auth";
@@ -10,12 +10,12 @@ export const members = pgTable("members", {
   githubUsername: varchar("github_username").notNull().unique(),
   displayName: varchar("display_name").notNull(),
   avatarUrl: varchar("avatar_url"),
-  totalCommits: integer("total_commits").notNull().default(0),
-  weeklyCommits: integer("weekly_commits").notNull().default(0),
+  totalCommits: bigint("total_commits", { mode: "number" }).notNull().default(0),
+  weeklyCommits: bigint("weekly_commits", { mode: "number" }).notNull().default(0),
   currentStreak: integer("current_streak").notNull().default(0),
   longestStreak: integer("longest_streak").notNull().default(0),
   level: integer("level").notNull().default(1),
-  xp: integer("xp").notNull().default(0),
+  xp: bigint("xp", { mode: "number" }).notNull().default(0),
   rank: varchar("rank").notNull().default("Newbie"),
   joinedAt: timestamp("joined_at").defaultNow(),
   lastSyncedAt: timestamp("last_synced_at"),
@@ -24,7 +24,7 @@ export const members = pgTable("members", {
 export const commitHistory = pgTable("commit_history", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   memberId: varchar("member_id").notNull().references(() => members.id),
-  commitCount: integer("commit_count").notNull().default(0),
+  commitCount: bigint("commit_count", { mode: "number" }).notNull().default(0),
   commitDate: date("commit_date").notNull(),
   weekNumber: integer("week_number").notNull(),
   year: integer("year").notNull(),
@@ -45,7 +45,7 @@ export const weeklyWinners = pgTable("weekly_winners", {
   memberId: varchar("member_id").notNull().references(() => members.id),
   weekNumber: integer("week_number").notNull(),
   year: integer("year").notNull(),
-  commitCount: integer("commit_count").notNull(),
+  commitCount: bigint("commit_count", { mode: "number" }).notNull(),
   awardedAt: timestamp("awarded_at").defaultNow(),
 });
 

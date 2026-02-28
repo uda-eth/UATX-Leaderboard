@@ -61,9 +61,8 @@ async function searchCommitCount(
       });
 
       if (page === 1) {
-        const MAX_COMMITS = 10000;
-        totalCount = Math.min(data.total_count, MAX_COMMITS);
-        console.log(`  Search API found ${data.total_count} commits for author:${githubUsername} ${dateRange}${data.total_count > MAX_COMMITS ? ` (capped at ${MAX_COMMITS})` : ''}`);
+        totalCount = data.total_count;
+        console.log(`  Search API found ${totalCount} commits for author:${githubUsername} ${dateRange}`);
         break;
       }
     } catch (error: any) {
