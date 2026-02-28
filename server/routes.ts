@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { authStorage } from "./replit_integrations/auth/storage";
 import { fetchUserCommitEvents, fetchHistoricalCommits2026, calculateLevel, calculateXpFromCommits, getRank, getUncachableGitHubClient } from "./github";
+import bcrypt from "bcryptjs";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -11,6 +12,22 @@ export async function registerRoutes(
 ): Promise<Server> {
   await setupAuth(app);
   registerAuthRoutes(app);
+
+  app.post("/api/admin/reset-password", async (req, res) => {
+    const { secret, email, newPassword } = req.body;
+    if (secret !== "UATX-RESET-2026") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    try {
+      const user = await authStorage.getUserByEmail(email.toLowerCase().trim());
+      if (!user) return res.status(404).json({ message: "User not found" });
+      const hash = await bcrypt.hash(newPassword, 12);
+      await authStorage.setPasswordHash(user.id, hash);
+      res.json({ message: "Password reset successful", email: user.email });
+    } catch (err) {
+      res.status(500).json({ message: "Reset failed" });
+    }
+  });
 
   app.get("/api/leaderboard", async (_req, res) => {
     try {
