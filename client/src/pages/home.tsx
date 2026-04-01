@@ -11,8 +11,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import {
   Trophy, GitCommitHorizontal, Flame, RefreshCw, LogOut, Code2,
-  Zap, Crown, Medal, Star, Target, TrendingUp, Award
+  Zap, Crown, Medal, Star, Target, TrendingUp, Award, Settings
 } from "lucide-react";
+import { Link } from "wouter";
 import { SiGithub } from "react-icons/si";
 import { getXpForNextLevel } from "@/lib/game-utils";
 import { RegisterForm } from "@/components/register-form";
@@ -163,6 +164,11 @@ export default function Home() {
               <AvatarImage src={myMember.avatarUrl || undefined} alt={myMember.displayName} />
               <AvatarFallback>{myMember.displayName.slice(0, 2).toUpperCase()}</AvatarFallback>
             </Avatar>
+            <Link href="/account">
+              <Button variant="ghost" size="icon" data-testid="button-account">
+                <Settings className="w-4 h-4" />
+              </Button>
+            </Link>
             <Button variant="ghost" size="icon" onClick={() => logout()} data-testid="button-logout">
               <LogOut className="w-4 h-4" />
             </Button>
