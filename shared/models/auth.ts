@@ -18,6 +18,8 @@ export const users = pgTable("users", {
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   passwordHash: text("password_hash"),
+  githubId: varchar("github_id").unique(),
+  githubAccessToken: text("github_access_token"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

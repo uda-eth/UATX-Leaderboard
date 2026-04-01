@@ -5,9 +5,12 @@ import { eq } from "drizzle-orm";
 export interface IAuthStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByGithubId(githubId: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   createUser(user: UpsertUser): Promise<User>;
   setPasswordHash(id: string, hash: string): Promise<User>;
+  setGithubConnection(id: string, githubId: string, githubAccessToken: string): Promise<User>;
+  disconnectGithub(id: string): Promise<User>;
 }
 
 class AuthStorage implements IAuthStorage {
@@ -21,16 +24,18 @@ class AuthStorage implements IAuthStorage {
     return user;
   }
 
+  async getUserByGithubId(githubId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.githubId, githubId));
+    return user;
+  }
+
   async upsertUser(userData: UpsertUser): Promise<User> {
     const [user] = await db
       .insert(users)
       .values(userData)
       .onConflictDoUpdate({
         target: users.id,
-        set: {
-          ...userData,
-          updatedAt: new Date(),
-        },
+        set: { ...userData, updatedAt: new Date() },
       })
       .returning();
     return user;
@@ -45,6 +50,24 @@ class AuthStorage implements IAuthStorage {
     const [user] = await db
       .update(users)
       .set({ passwordHash: hash, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
+  async setGithubConnection(id: string, githubId: string, githubAccessToken: string): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ githubId, githubAccessToken, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
+  async disconnectGithub(id: string): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ githubId: null, githubAccessToken: null, updatedAt: new Date() })
       .where(eq(users.id, id))
       .returning();
     return user;

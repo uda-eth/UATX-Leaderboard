@@ -2,12 +2,12 @@ import { Octokit } from '@octokit/rest'
 
 let connectionSettings: any;
 
-async function getAccessToken() {
+async function getAppAccessToken() {
   if (connectionSettings && connectionSettings.settings.expires_at && new Date(connectionSettings.settings.expires_at).getTime() > Date.now()) {
     return connectionSettings.settings.access_token;
   }
 
-  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME
+  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY
     ? 'repl ' + process.env.REPL_IDENTITY
     : process.env.WEB_REPL_RENEWAL
@@ -23,12 +23,12 @@ async function getAccessToken() {
     {
       headers: {
         'Accept': 'application/json',
-        'X-Replit-Token': xReplitToken
-      }
+        'X-Replit-Token': xReplitToken,
+      },
     }
   ).then(res => res.json()).then(data => data.items?.[0]);
 
-  const accessToken = connectionSettings?.settings?.access_token || connectionSettings.settings?.oauth?.credentials?.access_token;
+  const accessToken = connectionSettings?.settings?.access_token || connectionSettings?.settings?.oauth?.credentials?.access_token;
 
   if (!connectionSettings || !accessToken) {
     throw new Error('GitHub not connected');
@@ -37,8 +37,19 @@ async function getAccessToken() {
 }
 
 export async function getUncachableGitHubClient() {
-  const accessToken = await getAccessToken();
+  const accessToken = await getAppAccessToken();
   return new Octokit({ auth: accessToken });
+}
+
+/**
+ * Returns an Octokit instance using either the provided user token
+ * (which can access private repos) or the app-level token (public only).
+ */
+export async function getGitHubClient(userToken?: string | null): Promise<Octokit> {
+  if (userToken) {
+    return new Octokit({ auth: userToken });
+  }
+  return getUncachableGitHubClient();
 }
 
 async function searchCommitCount(
@@ -46,49 +57,40 @@ async function searchCommitCount(
   githubUsername: string,
   dateRange: string,
 ): Promise<number> {
-  let totalCount = 0;
-  let page = 1;
-  const maxPages = 10;
-
-  while (page <= maxPages) {
-    try {
-      const { data } = await octokit.rest.search.commits({
-        q: `author:${githubUsername} ${dateRange}`,
-        per_page: 100,
-        page,
-        sort: "author-date",
-        order: "desc",
-      });
-
-      if (page === 1) {
-        totalCount = data.total_count;
-        console.log(`  Search API found ${totalCount} commits for author:${githubUsername} ${dateRange}`);
-        break;
-      }
-    } catch (error: any) {
-      if (error.status === 422) {
-        console.log(`  Search API: query too broad, paginating manually...`);
-        break;
-      }
-      console.error(`  Search API error page ${page}:`, error.message || error);
-      break;
+  try {
+    const { data } = await octokit.rest.search.commits({
+      q: `author:${githubUsername} ${dateRange}`,
+      per_page: 1,
+      page: 1,
+      sort: "author-date",
+      order: "desc",
+    });
+    const totalCount = data.total_count;
+    console.log(`  Search API found ${totalCount} commits for author:${githubUsername} ${dateRange}`);
+    return totalCount;
+  } catch (error: any) {
+    if (error.status === 422) {
+      console.log(`  Search API: query too broad for ${githubUsername}`);
+      return 0;
     }
+    console.error(`  Search API error:`, error.message || error);
+    return 0;
   }
-
-  return totalCount;
 }
 
-export async function fetchUserCommitEvents(githubUsername: string): Promise<number> {
+export async function fetchUserCommitEvents(
+  githubUsername: string,
+  userToken?: string | null
+): Promise<number> {
   try {
-    const octokit = await getUncachableGitHubClient();
+    const octokit = await getGitHubClient(userToken);
     const now = new Date();
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-
     const fromDate = weekAgo.toISOString().split('T')[0];
     const toDate = now.toISOString().split('T')[0];
     const dateRange = `author-date:${fromDate}..${toDate}`;
-
-    console.log(`Searching weekly commits for ${githubUsername} (${fromDate} to ${toDate})...`);
+    const scope = userToken ? "user-token (incl. private)" : "app-token (public only)";
+    console.log(`Searching weekly commits for ${githubUsername} [${scope}] (${fromDate} to ${toDate})...`);
     const count = await searchCommitCount(octokit, githubUsername, dateRange);
     console.log(`Weekly commits for ${githubUsername}: ${count}`);
     return count;
@@ -98,14 +100,17 @@ export async function fetchUserCommitEvents(githubUsername: string): Promise<num
   }
 }
 
-export async function fetchHistoricalCommits2026(githubUsername: string): Promise<number> {
+export async function fetchHistoricalCommits2026(
+  githubUsername: string,
+  userToken?: string | null
+): Promise<number> {
   try {
-    const octokit = await getUncachableGitHubClient();
+    const octokit = await getGitHubClient(userToken);
     const now = new Date();
     const toDate = now.toISOString().split('T')[0];
     const dateRange = `author-date:2026-01-01..${toDate}`;
-
-    console.log(`Deep scanning 2026 commits for ${githubUsername}...`);
+    const scope = userToken ? "user-token (incl. private)" : "app-token (public only)";
+    console.log(`Deep scanning 2026 commits for ${githubUsername} [${scope}]...`);
     const count = await searchCommitCount(octokit, githubUsername, dateRange);
     console.log(`Total 2026 commits for ${githubUsername}: ${count}`);
     return count;

@@ -11,10 +11,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import {
   Trophy, GitCommitHorizontal, Flame, RefreshCw, LogOut, Code2,
-  Zap, Crown, Medal, Star, Target, TrendingUp, Award, Settings
+  Zap, Crown, Medal, Star, Target, TrendingUp, Award, Settings, CheckCircle2, Link2Off
 } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import { SiGithub } from "react-icons/si";
+import { useEffect } from "react";
 import { getXpForNextLevel } from "@/lib/game-utils";
 import { RegisterForm } from "@/components/register-form";
 import { LeaderboardTable } from "@/components/leaderboard-table";
@@ -48,6 +49,7 @@ function getRankIcon(rank: string) {
 export default function Home() {
   const { user, logout } = useAuth();
   const { toast } = useToast();
+  const search = useSearch();
 
   const { data: myMember, isLoading: memberLoading } = useQuery<Member | null>({
     queryKey: ["/api/me/member"],
@@ -97,6 +99,26 @@ export default function Home() {
     enabled: !!myMember?.id,
   });
 
+  const { data: githubStatus, refetch: refetchGithubStatus } = useQuery<{ connected: boolean }>({
+    queryKey: ["/api/auth/github/status"],
+    queryFn: async () => {
+      const res = await fetch("/api/auth/github/status", { credentials: "include" });
+      if (!res.ok) return { connected: false };
+      return res.json();
+    },
+  });
+
+  const disconnectGithubMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/auth/github/disconnect");
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchGithubStatus();
+      toast({ title: "GitHub disconnected", description: "Commits will now only count public repos." });
+    },
+  });
+
   const syncMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("POST", "/api/sync-commits");
@@ -113,6 +135,24 @@ export default function Home() {
       toast({ title: "Sync failed", description: "Could not sync commits. Try again.", variant: "destructive" });
     },
   });
+
+  // Handle GitHub OAuth redirect messages
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    const github = params.get("github");
+    const error = params.get("error");
+    if (github === "connected") {
+      refetchGithubStatus();
+      toast({ title: "GitHub connected!", description: "Private repo commits will now be counted too. Sync to update." });
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (github === "denied") {
+      toast({ title: "GitHub access denied", description: "You can connect GitHub anytime from your profile.", variant: "destructive" });
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (error) {
+      toast({ title: "GitHub connection failed", description: "Something went wrong. Please try again.", variant: "destructive" });
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, [search]);
 
   if (memberLoading) {
     return (
@@ -198,6 +238,38 @@ export default function Home() {
                     <span>{myMember.githubUsername}</span>
                     {myRank > 0 && (
                       <span className="ml-2">Rank #{myRank}</span>
+                    )}
+                  </div>
+                  <div className="mt-2">
+                    {githubStatus?.connected ? (
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-green-600 dark:text-green-400 text-xs gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          GitHub Connected (private repos tracked)
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 px-1.5 text-xs text-muted-foreground"
+                          onClick={() => disconnectGithubMutation.mutate()}
+                          disabled={disconnectGithubMutation.isPending}
+                          data-testid="button-disconnect-github"
+                        >
+                          <Link2Off className="w-3 h-3 mr-1" />
+                          Disconnect
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs gap-1.5"
+                        onClick={() => window.location.href = "/api/auth/github"}
+                        data-testid="button-connect-github"
+                      >
+                        <SiGithub className="w-3.5 h-3.5" />
+                        Connect GitHub (unlock private repos)
+                      </Button>
                     )}
                   </div>
                   <div className="mt-3 space-y-1.5">

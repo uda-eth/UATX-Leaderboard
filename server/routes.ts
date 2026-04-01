@@ -129,9 +129,11 @@ export async function registerRoutes(
 
       (async () => {
         try {
+          const user2 = await authStorage.getUser(userId);
+          const userToken = user2?.githubAccessToken ?? null;
           console.log(`Starting deep historical scan for ${githubUsername}...`);
-          const historicalCommits = await fetchHistoricalCommits2026(githubUsername);
-          const weeklyCommits = await fetchUserCommitEvents(githubUsername);
+          const historicalCommits = await fetchHistoricalCommits2026(githubUsername, userToken);
+          const weeklyCommits = await fetchUserCommitEvents(githubUsername, userToken);
 
           if (historicalCommits > 0) {
             const xp = calculateXpFromCommits(historicalCommits);
@@ -196,9 +198,12 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Member not found. Please register first." });
       }
 
+      const user = await authStorage.getUser(userId);
+      const userToken = user?.githubAccessToken ?? null;
+
       const [weeklyCommits, totalCommits2026] = await Promise.all([
-        fetchUserCommitEvents(member.githubUsername),
-        fetchHistoricalCommits2026(member.githubUsername),
+        fetchUserCommitEvents(member.githubUsername, userToken),
+        fetchHistoricalCommits2026(member.githubUsername, userToken),
       ]);
       const totalCommits = Math.max(member.totalCommits, totalCommits2026);
       const xp = calculateXpFromCommits(totalCommits);
