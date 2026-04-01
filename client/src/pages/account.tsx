@@ -1,22 +1,27 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Code2, ArrowLeft, Mail, Lock, KeyRound, Eye, EyeOff } from "lucide-react";
+import {
+  Code2, ArrowLeft, Mail, Lock, KeyRound, Eye, EyeOff,
+  CheckCircle2, Link2Off, ShieldCheck, AlertCircle
+} from "lucide-react";
 import { SiGithub } from "react-icons/si";
-import { Link } from "wouter";
-import { useState } from "react";
+import { Link, useSearch } from "wouter";
+import { useState, useEffect } from "react";
 import type { Member } from "@shared/models/leaderboard";
 
 export default function Account() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const search = useSearch();
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -31,6 +36,29 @@ export default function Account() {
       if (res.status === 401) return null;
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
+    },
+  });
+
+  const { data: githubStatus, refetch: refetchGithubStatus } = useQuery<{ connected: boolean }>({
+    queryKey: ["/api/auth/github/status"],
+    queryFn: async () => {
+      const res = await fetch("/api/auth/github/status", { credentials: "include" });
+      if (!res.ok) return { connected: false };
+      return res.json();
+    },
+  });
+
+  const disconnectGithubMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/auth/github/disconnect");
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchGithubStatus();
+      toast({ title: "GitHub disconnected", description: "Commits will now only count public repos." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to disconnect GitHub.", variant: "destructive" });
     },
   });
 
@@ -54,19 +82,34 @@ export default function Account() {
     },
   });
 
+  // Handle GitHub OAuth redirect params
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    const github = params.get("github");
+    const error = params.get("error");
+    if (github === "connected") {
+      refetchGithubStatus();
+      toast({ title: "GitHub connected!", description: "Private repo commits will now be counted. Sync from the dashboard to update." });
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (github === "denied") {
+      toast({ title: "GitHub access denied", description: "You can connect anytime from this page.", variant: "destructive" });
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (error) {
+      toast({ title: "GitHub connection failed", description: "Something went wrong. Please try again.", variant: "destructive" });
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, [search]);
+
   const handleChangePassword = (e: React.FormEvent) => {
     e.preventDefault();
-
     if (newPassword.length < 6) {
       toast({ title: "Error", description: "New password must be at least 6 characters", variant: "destructive" });
       return;
     }
-
     if (newPassword !== confirmPassword) {
       toast({ title: "Error", description: "New passwords do not match", variant: "destructive" });
       return;
     }
-
     changePasswordMutation.mutate({ currentPassword, newPassword });
   };
 
@@ -93,7 +136,7 @@ export default function Account() {
             <span className="font-semibold text-lg tracking-tight">UATX Code Club</span>
           </div>
           <Link href="/">
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" data-testid="link-back">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Dashboard
             </Button>
@@ -119,8 +162,97 @@ export default function Account() {
           <CardContent>
             <div className="flex items-center gap-3 p-3 rounded-md bg-muted/50">
               <Mail className="w-5 h-5 text-muted-foreground" />
-              <span className="font-medium">{user?.email || "No email"}</span>
+              <span className="font-medium" data-testid="text-email">{user?.email || "No email"}</span>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* GitHub OAuth Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <SiGithub className="w-5 h-5" />
+              GitHub OAuth
+            </CardTitle>
+            <CardDescription>
+              Connect your GitHub account to track commits from private repositories as well as public ones.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {myMember && (
+              <div className="flex items-center gap-3 p-3 rounded-md bg-muted/50">
+                <Avatar className="h-9 w-9">
+                  <AvatarImage src={myMember.avatarUrl || undefined} alt={myMember.githubUsername} />
+                  <AvatarFallback>{myMember.githubUsername.slice(0, 2).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 text-sm font-medium">
+                    <SiGithub className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">{myMember.githubUsername}</span>
+                  </div>
+                  <a
+                    href={`https://github.com/${myMember.githubUsername}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-muted-foreground hover:text-primary hover:underline"
+                    data-testid="link-github-profile"
+                  >
+                    View GitHub Profile →
+                  </a>
+                </div>
+              </div>
+            )}
+
+            {githubStatus?.connected ? (
+              <div className="space-y-3">
+                <div className="flex items-start gap-3 p-4 rounded-md border border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/30">
+                  <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-green-800 dark:text-green-300">OAuth connected</p>
+                      <Badge variant="secondary" className="text-green-700 dark:text-green-400 text-xs">
+                        <ShieldCheck className="w-3 h-3 mr-1" />
+                        Private repos tracked
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-green-700 dark:text-green-500 mt-0.5">
+                      Your commit syncs now include private repositories. Hit "Sync Commits" on the dashboard to update your count.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-muted-foreground"
+                  onClick={() => disconnectGithubMutation.mutate()}
+                  disabled={disconnectGithubMutation.isPending}
+                  data-testid="button-disconnect-github"
+                >
+                  <Link2Off className="w-4 h-4 mr-2" />
+                  {disconnectGithubMutation.isPending ? "Disconnecting..." : "Disconnect GitHub OAuth"}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-start gap-3 p-4 rounded-md border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30">
+                  <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Tracking public repos only</p>
+                    <p className="text-xs text-amber-700 dark:text-amber-500 mt-0.5">
+                      Connect GitHub OAuth to also count commits from your private repositories.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  className="w-full gap-2"
+                  onClick={() => window.location.href = "/api/auth/github"}
+                  data-testid="button-connect-github"
+                >
+                  <SiGithub className="w-4 h-4" />
+                  Connect GitHub with OAuth
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -147,6 +279,7 @@ export default function Account() {
                     placeholder="Enter current password"
                     className="pl-10 pr-10"
                     required
+                    data-testid="input-current-password"
                   />
                   <button
                     type="button"
@@ -171,6 +304,7 @@ export default function Account() {
                     className="pl-10 pr-10"
                     required
                     minLength={6}
+                    data-testid="input-new-password"
                   />
                   <button
                     type="button"
@@ -195,6 +329,7 @@ export default function Account() {
                     className="pl-10 pr-10"
                     required
                     minLength={6}
+                    data-testid="input-confirm-password"
                   />
                   <button
                     type="button"
@@ -210,56 +345,11 @@ export default function Account() {
                 type="submit"
                 disabled={changePasswordMutation.isPending}
                 className="w-full"
+                data-testid="button-update-password"
               >
                 {changePasswordMutation.isPending ? "Updating..." : "Update Password"}
               </Button>
             </form>
-          </CardContent>
-        </Card>
-
-        {/* GitHub Account Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <SiGithub className="w-5 h-5" />
-              Linked GitHub Account
-            </CardTitle>
-            <CardDescription>Your connected GitHub account for tracking commits</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {myMember ? (
-              <div className="flex items-center gap-4 p-4 rounded-md bg-muted/50">
-                <Avatar className="h-12 w-12">
-                  <AvatarImage src={myMember.avatarUrl || undefined} alt={myMember.githubUsername} />
-                  <AvatarFallback>{myMember.githubUsername.slice(0, 2).toUpperCase()}</AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <SiGithub className="w-4 h-4" />
-                    <span className="font-semibold">{myMember.githubUsername}</span>
-                  </div>
-                  <a
-                    href={`https://github.com/${myMember.githubUsername}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-muted-foreground hover:text-primary hover:underline"
-                  >
-                    View GitHub Profile
-                  </a>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <SiGithub className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p className="font-medium">No GitHub account linked</p>
-                <p className="text-sm mt-1">Go to the dashboard to link your GitHub account.</p>
-                <Link href="/">
-                  <Button variant="outline" className="mt-4">
-                    Go to Dashboard
-                  </Button>
-                </Link>
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>
