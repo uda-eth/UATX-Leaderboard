@@ -81,12 +81,12 @@ async function fetchCommitContributions(
     const col = result.user?.contributionsCollection;
     const total = col?.totalCommitContributions ?? 0;
     const restricted = col?.restrictedContributionsCount ?? 0;
+    const combined = total + restricted;
     console.log(
-      `  [GraphQL] ${githubUsername}: ${total} commit contributions` +
-      (restricted > 0 ? ` (${restricted} from private repos)` : ' (public only)') +
+      `  [GraphQL] ${githubUsername}: ${total} public + ${restricted} private = ${combined} total commit contributions` +
       ` [${from.toISOString().split('T')[0]} → ${to.toISOString().split('T')[0]}]`
     );
-    return total;
+    return combined;
   } catch (err: any) {
     console.error(`  [GraphQL] Error fetching contributions for ${githubUsername}:`, err.message);
     return 0;
