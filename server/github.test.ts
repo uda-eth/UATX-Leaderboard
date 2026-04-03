@@ -17,11 +17,21 @@ import {
   getXpForNextLevel,
 } from './github';
 
-function makeGitHubResponse(publicCommits: number, privateCommits: number) {
+function makeGitHubResponse(
+  publicCommits: number,
+  privateCommits: number,
+  issues = 0,
+  prs = 0,
+  reviews = 0,
+) {
   return {
     user: {
       contributionsCollection: {
         totalCommitContributions: publicCommits,
+        totalIssueContributions: issues,
+        totalPullRequestContributions: prs,
+        totalPullRequestReviewContributions: reviews,
+        totalRepositoriesWithContributedCommits: 0,
         restrictedContributionsCount: privateCommits,
       },
     },
@@ -67,6 +77,12 @@ describe('fetchUserCommitEvents', () => {
     mockGraphql.mockResolvedValueOnce({ user: null });
     const result = await fetchUserCommitEvents('testuser', 'fake-token');
     expect(result).toBe(0);
+  });
+
+  it('does NOT count issues, PRs, or reviews in the commit total', async () => {
+    mockGraphql.mockResolvedValueOnce(makeGitHubResponse(30, 0, 10, 5, 3));
+    const result = await fetchUserCommitEvents('testuser', 'fake-token');
+    expect(result).toBe(30);
   });
 });
 

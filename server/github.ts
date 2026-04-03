@@ -59,6 +59,10 @@ async function fetchCommitContributions(
       user(login: $login) {
         contributionsCollection(from: $from, to: $to) {
           totalCommitContributions
+          totalIssueContributions
+          totalPullRequestContributions
+          totalPullRequestReviewContributions
+          totalRepositoriesWithContributedCommits
           restrictedContributionsCount
         }
       }
@@ -69,6 +73,10 @@ async function fetchCommitContributions(
       user: {
         contributionsCollection: {
           totalCommitContributions: number;
+          totalIssueContributions: number;
+          totalPullRequestContributions: number;
+          totalPullRequestReviewContributions: number;
+          totalRepositoriesWithContributedCommits: number;
           restrictedContributionsCount: number;
         };
       };
@@ -79,12 +87,19 @@ async function fetchCommitContributions(
     });
 
     const col = result.user?.contributionsCollection;
-    const total = col?.totalCommitContributions ?? 0;
+    const commits = col?.totalCommitContributions ?? 0;
+    const issues = col?.totalIssueContributions ?? 0;
+    const prs = col?.totalPullRequestContributions ?? 0;
+    const reviews = col?.totalPullRequestReviewContributions ?? 0;
+    const repos = col?.totalRepositoriesWithContributedCommits ?? 0;
     const restricted = col?.restrictedContributionsCount ?? 0;
-    const combined = total + restricted;
+    const combined = commits + restricted;
     console.log(
-      `  [GraphQL] ${githubUsername}: ${total} public + ${restricted} private = ${combined} total commit contributions` +
-      ` [${from.toISOString().split('T')[0]} → ${to.toISOString().split('T')[0]}]`
+      `  [GraphQL] ${githubUsername} [${from.toISOString().split('T')[0]} → ${to.toISOString().split('T')[0]}]\n` +
+      `    commits: ${commits} (public) + ${restricted} (private) = ${combined}\n` +
+      `    issues: ${issues} | PRs: ${prs} | PR reviews: ${reviews}\n` +
+      `    repos with commits: ${repos}\n` +
+      `    GitHub profile total would be: ${commits + restricted + issues + prs + reviews}`
     );
     return combined;
   } catch (err: any) {
