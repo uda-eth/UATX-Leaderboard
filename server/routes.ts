@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { authStorage } from "./replit_integrations/auth/storage";
-import { fetchUserCommitEvents, fetchHistoricalCommits2026, calculateLevel, calculateXpFromCommits, getRank, getUncachableGitHubClient } from "./github";
+import { fetchUserCommitEvents, fetchHistoricalCommits2026, calculateLevel, calculateXpFromCommits, getRank, getUncachableGitHubClient, checkTokenHasRepoScope } from "./github";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -189,6 +189,19 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/auth/github/scope-status", isAuthenticated, async (req, res) => {
+    try {
+      const user = await authStorage.getUser(req.session.userId!);
+      if (!user?.githubAccessToken) {
+        return res.json({ connected: false, hasRepoScope: false });
+      }
+      const hasRepoScope = await checkTokenHasRepoScope(user.githubAccessToken);
+      res.json({ connected: true, hasRepoScope });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to check token scope" });
+    }
+  });
+
   app.post("/api/sync-commits", isAuthenticated, async (req, res) => {
     try {
       const userId = req.session.userId!;
@@ -200,6 +213,10 @@ export async function registerRoutes(
 
       const user = await authStorage.getUser(userId);
       const userToken = user?.githubAccessToken ?? null;
+
+      if (userToken) {
+        await checkTokenHasRepoScope(userToken);
+      }
 
       const [weeklyCommits, totalCommits2026] = await Promise.all([
         fetchUserCommitEvents(member.githubUsername, userToken),

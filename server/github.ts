@@ -155,3 +155,22 @@ export function getRank(level: number): string {
 export function getXpForNextLevel(level: number): number {
   return level * level * 50;
 }
+
+export async function checkTokenHasRepoScope(userToken: string): Promise<boolean> {
+  try {
+    const res = await fetch('https://api.github.com/user', {
+      headers: {
+        Authorization: `token ${userToken}`,
+        Accept: 'application/vnd.github.v3+json',
+      },
+    });
+    const scopes = res.headers.get('x-oauth-scopes') ?? '';
+    const scopeList = scopes.split(',').map(s => s.trim());
+    const hasRepo = scopeList.includes('repo');
+    console.log(`  [GitHub] Token scopes: "${scopes}" — repo access: ${hasRepo}`);
+    return hasRepo;
+  } catch (err: any) {
+    console.error('  [GitHub] Failed to check token scopes:', err.message);
+    return false;
+  }
+}

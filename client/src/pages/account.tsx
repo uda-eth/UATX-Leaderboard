@@ -48,6 +48,16 @@ export default function Account() {
     },
   });
 
+  const { data: githubScopeStatus, refetch: refetchScopeStatus } = useQuery<{ connected: boolean; hasRepoScope: boolean }>({
+    queryKey: ["/api/auth/github/scope-status"],
+    queryFn: async () => {
+      const res = await fetch("/api/auth/github/scope-status", { credentials: "include" });
+      if (!res.ok) return { connected: false, hasRepoScope: false };
+      return res.json();
+    },
+    enabled: !!githubStatus?.connected,
+  });
+
   const disconnectGithubMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("POST", "/api/auth/github/disconnect");
@@ -55,6 +65,7 @@ export default function Account() {
     },
     onSuccess: () => {
       refetchGithubStatus();
+      refetchScopeStatus();
       toast({ title: "GitHub disconnected", description: "Commits will now only count public repos." });
     },
     onError: () => {
@@ -205,21 +216,43 @@ export default function Account() {
 
             {githubStatus?.connected ? (
               <div className="space-y-3">
-                <div className="flex items-start gap-3 p-4 rounded-md border border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/30">
-                  <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-green-800 dark:text-green-300">OAuth connected</p>
-                      <Badge variant="secondary" className="text-green-700 dark:text-green-400 text-xs">
-                        <ShieldCheck className="w-3 h-3 mr-1" />
-                        Private repos tracked
-                      </Badge>
+                {githubScopeStatus?.hasRepoScope === false ? (
+                  <div className="flex items-start gap-3 p-4 rounded-md border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30">
+                    <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-amber-800 dark:text-amber-300">OAuth connected — but missing private repo access</p>
+                      <p className="text-xs text-amber-700 dark:text-amber-500 mt-0.5">
+                        Your token was created without full repository access. Disconnect and reconnect to fix this so private repo commits are counted.
+                      </p>
                     </div>
-                    <p className="text-xs text-green-700 dark:text-green-500 mt-0.5">
-                      Your commit syncs now include private repositories. Hit "Sync Commits" on the dashboard to update your count.
-                    </p>
                   </div>
-                </div>
+                ) : (
+                  <div className="flex items-start gap-3 p-4 rounded-md border border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/30">
+                    <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-green-800 dark:text-green-300">OAuth connected</p>
+                        <Badge variant="secondary" className="text-green-700 dark:text-green-400 text-xs">
+                          <ShieldCheck className="w-3 h-3 mr-1" />
+                          Private repos tracked
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-green-700 dark:text-green-500 mt-0.5">
+                        Your commit syncs now include private repositories. Hit "Sync Commits" on the dashboard to update your count.
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {githubScopeStatus?.hasRepoScope === false && (
+                  <Button
+                    className="w-full gap-2"
+                    onClick={() => window.location.href = "/api/auth/github"}
+                    data-testid="button-reconnect-github"
+                  >
+                    <SiGithub className="w-4 h-4" />
+                    Reconnect GitHub with Full Access
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
