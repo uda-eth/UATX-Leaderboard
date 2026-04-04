@@ -1,0 +1,29 @@
+Plan: Count All GitHub Contributions (Match Profile Page)
+What changes and what stays the same
+Nothing changes in the database schema. The column stays named total_commits internally — renaming it would require a migration and break nothing visible to users. The user-facing label already says "contributions" from the previous terminology fix.
+
+Nothing changes in the GraphQL query. It already fetches all four contribution types (totalCommitContributions, restrictedContributionsCount, totalIssueContributions, totalPullRequestContributions, totalPullRequestReviewContributions). The data is there — it's just being thrown away.
+
+Step 1 — Change the return value in server/github.ts
+In fetchCommitContributions(), the current sum is:
+
+commits + restricted
+Change it to:
+
+commits + restricted + issues + prs + reviews
+This is a one-line change to what gets returned from that function. The diagnostic log stays as-is so you can still see the breakdown.
+
+Step 2 — Run a one-time backfill for all members in production
+Every member's stored totalCommits value was calculated with commits-only. After the code change, new syncs will get the correct number — but existing stored values won't update until each user manually syncs. The plan is to add a startup backfill (similar to the streak backfill) that re-syncs everyone's totals automatically. However, this requires hitting the GitHub API for each member, so it needs to be done carefully — either triggered on demand or run once after deployment.
+
+Simpler alternative: just let each user sync themselves once after the update is deployed. The number will correct immediately on their next sync.
+
+Step 3 — Update the tests in server/github.test.ts
+The existing mock tests validate the commit-summing logic. Several tests will need their expected values updated to reflect that the sum now includes issues, PRs, and reviews. No new test infrastructure needed — just updated assertions.
+
+Scope summary
+File	Change
+server/github.ts	One-line change: include issues + PRs + reviews in the sum
+server/github.test.ts	Update test assertions to match new totals
+Everything else	No changes needed
+Expected outcome after a sync: uda-eth would show ~410 instead of 327, matching what GitHub's profile page displays.
