@@ -176,7 +176,7 @@ function AuthDialog({ open, onOpenChange, defaultTab }: { open: boolean; onOpenC
               {signupMutation.isPending ? "Creating account..." : "Create Account"}
             </Button>
             <p className="text-xs text-center text-muted-foreground">
-              After signing up, you'll link your GitHub username to start tracking commits.
+              After signing up, you'll link your GitHub username to start tracking contributions.
             </p>
           </TabsContent>
         </Tabs>
@@ -232,7 +232,7 @@ export default function Landing() {
                   <span className="text-primary">Win More.</span>
                 </h1>
                 <p className="text-lg text-muted-foreground max-w-lg mt-4">
-                  The UATX AI Coding Club leaderboard. Track your GitHub commits, climb the ranks, earn achievements, and compete for weekly glory.
+                  The UATX AI Coding Club leaderboard. Track your GitHub contributions, climb the ranks, earn achievements, and compete for weekly glory.
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
@@ -267,11 +267,11 @@ export default function Landing() {
                   <Badge variant="outline">Live</Badge>
                 </div>
                 {[
-                  { rank: 1, name: "Alice Chen", commits: 47, level: 12, color: "text-yellow-500" },
-                  { rank: 2, name: "Bob Martinez", commits: 38, level: 9, color: "text-gray-400" },
-                  { rank: 3, name: "Carol Kim", commits: 31, level: 7, color: "text-amber-600" },
-                  { rank: 4, name: "Dave Johnson", commits: 24, level: 5, color: "" },
-                  { rank: 5, name: "Eve Williams", commits: 19, level: 4, color: "" },
+                  { rank: 1, name: "Alice Chen", contributions: 47, level: 12, color: "text-yellow-500" },
+                  { rank: 2, name: "Bob Martinez", contributions: 38, level: 9, color: "text-gray-400" },
+                  { rank: 3, name: "Carol Kim", contributions: 31, level: 7, color: "text-amber-600" },
+                  { rank: 4, name: "Dave Johnson", contributions: 24, level: 5, color: "" },
+                  { rank: 5, name: "Eve Williams", contributions: 19, level: 4, color: "" },
                 ].map((u) => (
                   <div key={u.rank} className="flex items-center gap-3 p-3 rounded-md bg-background/50">
                     <span className={`font-bold text-lg w-6 text-center ${u.color}`}>
@@ -289,8 +289,8 @@ export default function Landing() {
                       <p className="text-xs text-muted-foreground">Level {u.level}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold text-sm">{u.commits}</p>
-                      <p className="text-xs text-muted-foreground">commits</p>
+                      <p className="font-semibold text-sm">{u.contributions}</p>
+                      <p className="text-xs text-muted-foreground">contributions</p>
                     </div>
                   </div>
                 ))}
@@ -314,7 +314,7 @@ export default function Landing() {
                 </div>
                 <h3 className="font-semibold">Join the Club</h3>
                 <p className="text-sm text-muted-foreground">
-                  Create a free account and link your GitHub username. Your public commits are automatically tracked every time you sync.
+                  Create a free account and link your GitHub username. Your public contributions are automatically tracked every time you sync.
                 </p>
               </CardContent>
             </Card>
@@ -325,7 +325,7 @@ export default function Landing() {
                 </div>
                 <h3 className="font-semibold">Push Code, Earn XP</h3>
                 <p className="text-sm text-muted-foreground">
-                  Every commit earns you XP. Level up, unlock achievements, and build your coding streak week after week.
+                  Every contribution earns you XP. Level up, unlock achievements, and build your coding streak week after week.
                 </p>
               </CardContent>
             </Card>

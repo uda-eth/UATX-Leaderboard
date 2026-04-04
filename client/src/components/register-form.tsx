@@ -38,7 +38,7 @@ export function RegisterForm({ user }: { user: User | null | undefined }) {
           </div>
           <h1 className="text-2xl font-bold tracking-tight">Join the Leaderboard</h1>
           <p className="text-muted-foreground text-sm">
-            Link your GitHub account to start tracking commits and earning XP.
+            Link your GitHub account to start tracking contributions and earning XP.
           </p>
         </div>
 
@@ -46,7 +46,7 @@ export function RegisterForm({ user }: { user: User | null | undefined }) {
           <CardHeader>
             <CardTitle className="text-base">GitHub Username</CardTitle>
             <CardDescription>
-              Enter your GitHub username so we can track your public commits.
+              Enter your GitHub username so we can track your public contributions.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

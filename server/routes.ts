@@ -154,7 +154,7 @@ export async function registerRoutes(
                 memberId: member.id,
                 type: "commits_10",
                 title: "Getting Started",
-                description: "Reached 10 total commits",
+                description: "Reached 10 total contributions",
                 icon: "git-commit",
               });
             }
@@ -163,7 +163,7 @@ export async function registerRoutes(
                 memberId: member.id,
                 type: "commits_50",
                 title: "Consistent Coder",
-                description: "Reached 50 total commits",
+                description: "Reached 50 total contributions",
                 icon: "flame",
               });
             }
@@ -172,7 +172,7 @@ export async function registerRoutes(
                 memberId: member.id,
                 type: "commits_100",
                 title: "Centurion",
-                description: "Reached 100 total commits",
+                description: "Reached 100 total contributions",
                 icon: "trophy",
               });
             }
@@ -246,7 +246,7 @@ export async function registerRoutes(
           memberId: member.id,
           type: "commits_10",
           title: "Getting Started",
-          description: "Reached 10 total commits",
+          description: "Reached 10 total contributions",
           icon: "git-commit",
         });
       }
@@ -255,7 +255,7 @@ export async function registerRoutes(
           memberId: member.id,
           type: "commits_50",
           title: "Consistent Coder",
-          description: "Reached 50 total commits",
+          description: "Reached 50 total contributions",
           icon: "flame",
         });
       }
@@ -264,7 +264,7 @@ export async function registerRoutes(
           memberId: member.id,
           type: "commits_100",
           title: "Centurion",
-          description: "Reached 100 total commits",
+          description: "Reached 100 total contributions",
           icon: "trophy",
         });
       }
@@ -281,7 +281,7 @@ export async function registerRoutes(
       res.json(updated);
     } catch (error) {
       console.error("Error syncing commits:", error);
-      res.status(500).json({ message: "Failed to sync commits" });
+      res.status(500).json({ message: "Failed to sync contributions" });
     }
   });
 

@@ -66,7 +66,7 @@ export default function Account() {
     onSuccess: () => {
       refetchGithubStatus();
       refetchScopeStatus();
-      toast({ title: "GitHub disconnected", description: "Commits will now only count public repos." });
+      toast({ title: "GitHub disconnected", description: "Contributions will now only count public repos." });
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to disconnect GitHub.", variant: "destructive" });
@@ -100,7 +100,7 @@ export default function Account() {
     const error = params.get("error");
     if (github === "connected") {
       refetchGithubStatus();
-      toast({ title: "GitHub connected!", description: "Private repo commits will now be counted. Sync from the dashboard to update." });
+      toast({ title: "GitHub connected!", description: "Private repo contributions will now be counted. Sync from the dashboard to update." });
       window.history.replaceState({}, "", window.location.pathname);
     } else if (github === "denied") {
       toast({ title: "GitHub access denied", description: "You can connect anytime from this page.", variant: "destructive" });
@@ -186,7 +186,7 @@ export default function Account() {
               GitHub OAuth
             </CardTitle>
             <CardDescription>
-              Connect your GitHub account to track commits from private repositories as well as public ones.
+              Connect your GitHub account to track contributions from private repositories as well as public ones.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -222,7 +222,7 @@ export default function Account() {
                     <div className="flex-1">
                       <p className="text-sm font-medium text-amber-800 dark:text-amber-300">OAuth connected — but missing private repo access</p>
                       <p className="text-xs text-amber-700 dark:text-amber-500 mt-0.5">
-                        Your token was created without full repository access. Disconnect and reconnect to fix this so private repo commits are counted.
+                        Your token was created without full repository access. Disconnect and reconnect to fix this so private repo contributions are counted.
                       </p>
                     </div>
                   </div>
@@ -238,7 +238,7 @@ export default function Account() {
                         </Badge>
                       </div>
                       <p className="text-xs text-green-700 dark:text-green-500 mt-0.5">
-                        Your commit syncs now include private repositories. Hit "Sync Commits" on the dashboard to update your count.
+                        Your contribution syncs now include private repositories. Hit "Sync Contributions" on the dashboard to update your count.
                       </p>
                     </div>
                   </div>
@@ -272,7 +272,7 @@ export default function Account() {
                   <div>
                     <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Tracking public repos only</p>
                     <p className="text-xs text-amber-700 dark:text-amber-500 mt-0.5">
-                      Connect GitHub OAuth to also count commits from your private repositories.
+                      Connect GitHub OAuth to also count contributions from your private repositories.
                     </p>
                   </div>
                 </div>

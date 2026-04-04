@@ -115,7 +115,7 @@ export default function Home() {
     },
     onSuccess: () => {
       refetchGithubStatus();
-      toast({ title: "GitHub disconnected", description: "Commits will now only count public repos." });
+      toast({ title: "GitHub disconnected", description: "Contributions will now only count public repos." });
     },
   });
 
@@ -129,10 +129,10 @@ export default function Home() {
       queryClient.invalidateQueries({ queryKey: ["/api/leaderboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/leaderboard/weekly"] });
       queryClient.invalidateQueries({ queryKey: ["/api/members", myMember?.id, "achievements"] });
-      toast({ title: "Synced!", description: "Your commits have been updated." });
+      toast({ title: "Synced!", description: "Your contributions have been updated." });
     },
     onError: () => {
-      toast({ title: "Sync failed", description: "Could not sync commits. Try again.", variant: "destructive" });
+      toast({ title: "Sync failed", description: "Could not sync contributions. Try again.", variant: "destructive" });
     },
   });
 
@@ -143,7 +143,7 @@ export default function Home() {
     const error = params.get("error");
     if (github === "connected") {
       refetchGithubStatus();
-      toast({ title: "GitHub connected!", description: "Private repo commits will now be counted too. Sync to update." });
+      toast({ title: "GitHub connected!", description: "Private repo contributions will now be counted too. Sync to update." });
       window.history.replaceState({}, "", window.location.pathname);
     } else if (github === "denied") {
       toast({ title: "GitHub access denied", description: "You can connect GitHub anytime from your profile.", variant: "destructive" });
@@ -198,7 +198,7 @@ export default function Home() {
               data-testid="button-sync"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
-              {syncMutation.isPending ? "Syncing..." : "Sync Commits"}
+              {syncMutation.isPending ? "Syncing..." : "Sync Contributions"}
             </Button>
             <Avatar className="h-8 w-8">
               <AvatarImage src={myMember.avatarUrl || undefined} alt={myMember.displayName} />
@@ -292,7 +292,7 @@ export default function Home() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold" data-testid="text-total-commits">{myMember.totalCommits}</p>
-                  <p className="text-xs text-muted-foreground">Total Commits</p>
+                  <p className="text-xs text-muted-foreground">Total Contributions</p>
                 </div>
               </div>
               <div className="mt-3 pt-3 border-t flex items-center justify-between gap-2">
@@ -394,7 +394,7 @@ export default function Home() {
                   <div className="text-center py-12 text-muted-foreground">
                     <Award className="w-12 h-12 mx-auto mb-3 opacity-30" />
                     <p className="font-medium">No achievements yet</p>
-                    <p className="text-sm mt-1">Start coding and sync your commits to unlock achievements!</p>
+                    <p className="text-sm mt-1">Start coding and sync your contributions to unlock achievements!</p>
                   </div>
                 ) : (
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -443,7 +443,7 @@ export default function Home() {
                         </div>
                         <div className="text-right">
                           <p className="font-semibold">{winner.commitCount}</p>
-                          <p className="text-xs text-muted-foreground">commits</p>
+                          <p className="text-xs text-muted-foreground">contributions</p>
                         </div>
                       </div>
                     ))}
