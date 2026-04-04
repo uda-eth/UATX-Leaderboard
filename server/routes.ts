@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { authStorage } from "./replit_integrations/auth/storage";
-import { fetchUserCommitEvents, fetchHistoricalCommits2026, calculateLevel, calculateXpFromCommits, getRank, getUncachableGitHubClient, checkTokenHasRepoScope } from "./github";
+import { fetchUserCommitEvents, fetchHistoricalCommits2026, calculateLevel, calculateXpFromCommits, getRank, getUncachableGitHubClient, checkTokenHasRepoScope, getISOWeek, isSameWeek, isPreviousWeek } from "./github";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -227,7 +227,30 @@ export async function registerRoutes(
       const level = calculateLevel(xp);
       const rank = getRank(level);
 
-      const streak = weeklyCommits > 0 ? member.currentStreak + 1 : 0;
+      const now = new Date();
+      const currentWeek = getISOWeek(now);
+      const lastSyncWeek = member.lastSyncedAt ? getISOWeek(new Date(member.lastSyncedAt)) : null;
+      const joinWeek = getISOWeek(new Date(member.joinedAt!));
+      const weeksActive = Math.max(0, currentWeek.year * 53 + currentWeek.week - (joinWeek.year * 53 + joinWeek.week));
+      const maxPossibleStreak = weeksActive + 1;
+
+      let streak = member.currentStreak;
+      if (weeklyCommits > 0) {
+        if (!lastSyncWeek) {
+          streak = 1;
+        } else if (isSameWeek(lastSyncWeek, currentWeek)) {
+          streak = Math.min(member.currentStreak, maxPossibleStreak);
+        } else if (isPreviousWeek(lastSyncWeek, currentWeek)) {
+          streak = Math.min(member.currentStreak + 1, maxPossibleStreak);
+        } else {
+          streak = 1;
+        }
+      } else {
+        if (lastSyncWeek && !isSameWeek(lastSyncWeek, currentWeek) && !isPreviousWeek(lastSyncWeek, currentWeek)) {
+          streak = 0;
+        }
+      }
+
       const longestStreak = Math.max(member.longestStreak, streak);
 
       const updated = await storage.updateMember(member.id, {

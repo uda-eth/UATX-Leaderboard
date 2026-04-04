@@ -20,6 +20,7 @@ export interface IStorage {
   addAchievement(data: Omit<Achievement, 'id' | 'earnedAt'>): Promise<Achievement>;
   getWeeklyWinners(): Promise<(WeeklyWinner & { member?: Member })[]>;
   addWeeklyWinner(data: Omit<WeeklyWinner, 'id' | 'awardedAt'>): Promise<WeeklyWinner>;
+  fixInflatedStreaks(): Promise<{ fixed: number }>;
 }
 
 class DatabaseStorage implements IStorage {
@@ -97,6 +98,31 @@ class DatabaseStorage implements IStorage {
   async addWeeklyWinner(data: Omit<WeeklyWinner, 'id' | 'awardedAt'>): Promise<WeeklyWinner> {
     const [created] = await db.insert(weeklyWinners).values(data).returning();
     return created;
+  }
+
+  async fixInflatedStreaks(): Promise<{ fixed: number }> {
+    const result = await db.execute(sql`
+      WITH corrected AS (
+        UPDATE members
+        SET
+          current_streak = LEAST(
+            current_streak,
+            GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (COALESCE(last_synced_at, now()) - joined_at)) / 604800)::int + 1)
+          ),
+          longest_streak = LEAST(
+            longest_streak,
+            GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (COALESCE(last_synced_at, now()) - joined_at)) / 604800)::int + 1)
+          )
+        WHERE
+          current_streak > GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (COALESCE(last_synced_at, now()) - joined_at)) / 604800)::int + 1)
+          OR longest_streak > GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (COALESCE(last_synced_at, now()) - joined_at)) / 604800)::int + 1)
+        RETURNING id
+      )
+      SELECT COUNT(*) AS fixed FROM corrected
+    `);
+    const fixed = parseInt((result.rows[0] as any).fixed, 10) || 0;
+    console.log(`[streak-backfill] Fixed ${fixed} member(s) with inflated streaks`);
+    return { fixed };
   }
 }
 

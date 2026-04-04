@@ -62,6 +62,14 @@ app.use((req, res, next) => {
 (async () => {
   const { seedDatabase } = await import("./seed");
   await seedDatabase();
+
+  const { storage } = await import("./storage");
+  try {
+    await storage.fixInflatedStreaks();
+  } catch (err: any) {
+    console.error("[streak-backfill] Failed to run streak backfill:", err.message);
+  }
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {

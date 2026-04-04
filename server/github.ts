@@ -1,5 +1,32 @@
 import { Octokit } from '@octokit/rest'
 
+export function getISOWeek(date: Date): { week: number; year: number } {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return {
+    week: Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7),
+    year: d.getUTCFullYear(),
+  };
+}
+
+export function isSameWeek(
+  a: { week: number; year: number },
+  b: { week: number; year: number }
+): boolean {
+  return a.year === b.year && a.week === b.week;
+}
+
+export function isPreviousWeek(
+  prev: { week: number; year: number },
+  current: { week: number; year: number }
+): boolean {
+  if (prev.year === current.year) return current.week === prev.week + 1;
+  if (prev.year === current.year - 1) return current.week === 1 && (prev.week === 52 || prev.week === 53);
+  return false;
+}
+
 let connectionSettings: any;
 
 async function getAppAccessToken() {
