@@ -120,13 +120,13 @@ async function fetchCommitContributions(
     const reviews = col?.totalPullRequestReviewContributions ?? 0;
     const repos = col?.totalRepositoriesWithContributedCommits ?? 0;
     const restricted = col?.restrictedContributionsCount ?? 0;
-    const combined = commits + restricted;
+    const combined = commits + restricted + issues + prs + reviews;
     console.log(
       `  [GraphQL] ${githubUsername} [${from.toISOString().split('T')[0]} → ${to.toISOString().split('T')[0]}]\n` +
-      `    commits: ${commits} (public) + ${restricted} (private) = ${combined}\n` +
+      `    commits: ${commits} (public) + ${restricted} (private)\n` +
       `    issues: ${issues} | PRs: ${prs} | PR reviews: ${reviews}\n` +
       `    repos with commits: ${repos}\n` +
-      `    GitHub profile total would be: ${commits + restricted + issues + prs + reviews}`
+      `    total contributions: ${combined}`
     );
     return combined;
   } catch (err: any) {

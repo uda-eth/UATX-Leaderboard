@@ -79,10 +79,10 @@ describe('fetchUserCommitEvents', () => {
     expect(result).toBe(0);
   });
 
-  it('does NOT count issues, PRs, or reviews in the commit total', async () => {
+  it('includes issues, PRs, and reviews in the contribution total', async () => {
     mockGraphql.mockResolvedValueOnce(makeGitHubResponse(30, 0, 10, 5, 3));
     const result = await fetchUserCommitEvents('testuser', 'fake-token');
-    expect(result).toBe(30);
+    expect(result).toBe(48);
   });
 });
 
