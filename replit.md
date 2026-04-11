@@ -11,8 +11,9 @@ A gamified coding leaderboard for the UATX AI Coding Club. Members sign in via R
 - **GitHub API**: Octokit via Replit GitHub connector
 
 ## Key Features
-- GitHub commit tracking via public events API
-- XP/leveling system (10 XP per commit)
+- GitHub contribution tracking (commits, issues, PRs, reviews — matches GitHub profile totals)
+- Automatic daily sync at midnight for all members (server/cron.ts)
+- XP/leveling system (10 XP per contribution)
 - Rank progression (Newbie -> Legendary)
 - Weekly and all-time leaderboards
 - Achievement system (milestones, streaks)
@@ -32,6 +33,7 @@ server/
   routes.ts          - API endpoints
   storage.ts         - Database CRUD operations
   github.ts          - GitHub API integration (Octokit connector)
+  cron.ts            - Daily auto-sync scheduler (runs at midnight)
   seed.ts            - Sample data seeder
   replit_integrations/auth/ - Replit Auth module
 client/src/
