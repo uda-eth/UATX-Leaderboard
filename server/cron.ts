@@ -126,7 +126,7 @@ async function syncAllMembers() {
   await crownWeeklyWinner();
 }
 
-async function crownWeeklyWinner() {
+export async function crownWeeklyWinner() {
   try {
     const now = new Date();
     const currentWeek = getISOWeek(now);

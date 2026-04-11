@@ -72,8 +72,9 @@ app.use((req, res, next) => {
 
   await registerRoutes(httpServer, app);
 
-  const { startDailySync } = await import("./cron");
+  const { startDailySync, crownWeeklyWinner } = await import("./cron");
   startDailySync();
+  crownWeeklyWinner();
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
