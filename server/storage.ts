@@ -20,6 +20,7 @@ export interface IStorage {
   addAchievement(data: Omit<Achievement, 'id' | 'earnedAt'>): Promise<Achievement>;
   getWeeklyWinners(): Promise<(WeeklyWinner & { member?: Member })[]>;
   addWeeklyWinner(data: Omit<WeeklyWinner, 'id' | 'awardedAt'>): Promise<WeeklyWinner>;
+  hasWeeklyWinner(week: number, year: number): Promise<boolean>;
   fixInflatedStreaks(): Promise<{ fixed: number }>;
 }
 
@@ -98,6 +99,17 @@ class DatabaseStorage implements IStorage {
   async addWeeklyWinner(data: Omit<WeeklyWinner, 'id' | 'awardedAt'>): Promise<WeeklyWinner> {
     const [created] = await db.insert(weeklyWinners).values(data).returning();
     return created;
+  }
+
+  async hasWeeklyWinner(week: number, year: number): Promise<boolean> {
+    const [row] = await db.select({ id: weeklyWinners.id })
+      .from(weeklyWinners)
+      .where(and(
+        eq(weeklyWinners.weekNumber, week),
+        eq(weeklyWinners.year, year),
+      ))
+      .limit(1);
+    return !!row;
   }
 
   async fixInflatedStreaks(): Promise<{ fixed: number }> {

@@ -122,6 +122,54 @@ async function syncAllMembers() {
   }
 
   console.log(`[auto-sync] Complete — ${success} synced, ${failed} failed out of ${members.length} members`);
+
+  await crownWeeklyWinner();
+}
+
+async function crownWeeklyWinner() {
+  try {
+    const now = new Date();
+    const currentWeek = getISOWeek(now);
+
+    let prevWeek = currentWeek.week - 1;
+    let prevYear = currentWeek.year;
+    if (prevWeek < 1) {
+      prevYear--;
+      prevWeek = 52;
+    }
+
+    const alreadyAwarded = await storage.hasWeeklyWinner(prevWeek, prevYear);
+    if (alreadyAwarded) {
+      console.log(`[weekly-winner] Week ${prevWeek}/${prevYear} already has a winner — skipping`);
+      return;
+    }
+
+    const allMembers = await storage.getAllMembers();
+    if (allMembers.length === 0) {
+      console.log("[weekly-winner] No members found — skipping");
+      return;
+    }
+
+    const topMember = allMembers.reduce((best, m) =>
+      m.weeklyCommits > best.weeklyCommits ? m : best
+    );
+
+    if (topMember.weeklyCommits <= 0) {
+      console.log(`[weekly-winner] No contributions last week — no winner for week ${prevWeek}/${prevYear}`);
+      return;
+    }
+
+    await storage.addWeeklyWinner({
+      memberId: topMember.id,
+      weekNumber: prevWeek,
+      year: prevYear,
+      commitCount: topMember.weeklyCommits,
+    });
+
+    console.log(`[weekly-winner] Crowned ${topMember.githubUsername} for week ${prevWeek}/${prevYear} with ${topMember.weeklyCommits} contributions`);
+  } catch (err: any) {
+    console.error("[weekly-winner] Error crowning weekly winner:", err.message);
+  }
 }
 
 function msUntilMidnight(): number {
